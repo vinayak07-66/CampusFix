@@ -1,0 +1,78 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sky gradient -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E0F6FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="buildingGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B4513;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A0522D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Sky background -->
+  <rect width="1920" height="1080" fill="url(#skyGradient)"/>
+  
+  <!-- Ground -->
+  <rect x="0" y="800" width="1920" height="280" fill="#228B22"/>
+  
+  <!-- Main building -->
+  <rect x="600" y="300" width="720" height="500" fill="url(#buildingGradient)"/>
+  
+  <!-- Building roof -->
+  <polygon points="580,300 960,150 1340,300" fill="#654321"/>
+  
+  <!-- Clock tower -->
+  <rect x="900" y="100" width="120" height="200" fill="url(#buildingGradient)"/>
+  <polygon points="890,100 960,50 1030,100" fill="#654321"/>
+  
+  <!-- Windows -->
+  <rect x="650" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="750" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="850" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="950" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1050" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1150" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1250" y="350" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  
+  <!-- Second row windows -->
+  <rect x="650" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="750" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="850" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="950" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1050" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1150" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1250" y="480" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  
+  <!-- Third row windows -->
+  <rect x="650" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="750" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="850" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="950" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1050" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1150" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  <rect x="1250" y="610" width="60" height="80" fill="#4169E1" opacity="0.8"/>
+  
+  <!-- Main entrance -->
+  <rect x="920" y="650" width="80" height="150" fill="#8B4513"/>
+  <rect x="930" y="660" width="60" height="140" fill="#654321"/>
+  
+  <!-- Side buildings -->
+  <rect x="200" y="450" width="300" height="350" fill="url(#buildingGradient)"/>
+  <rect x="1420" y="450" width="300" height="350" fill="url(#buildingGradient)"/>
+  
+  <!-- Trees -->
+  <circle cx="150" cy="750" r="50" fill="#228B22"/>
+  <rect x="140" y="750" width="20" height="50" fill="#8B4513"/>
+  
+  <circle cx="1800" cy="750" r="50" fill="#228B22"/>
+  <rect x="1790" y="750" width="20" height="50" fill="#8B4513"/>
+  
+  <!-- Clouds -->
+  <ellipse cx="300" cy="150" rx="80" ry="40" fill="white" opacity="0.8"/>
+  <ellipse cx="1600" cy="200" rx="100" ry="50" fill="white" opacity="0.8"/>
+  
+  <!-- Campus text -->
+  <text x="960" y="950" text-anchor="middle" font-family="serif" font-size="48" font-weight="bold" fill="#2F4F4F" opacity="0.7">CAMPUS UNIVERSITY</text>
+</svg>

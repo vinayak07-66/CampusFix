@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="90" fill="#1976d2" />
+  
+  <!-- Building Icon -->
+  <path d="M60 160V70h80v90" fill="none" stroke="white" stroke-width="8" stroke-linejoin="round" />
+  
+  <!-- Windows -->
+  <rect x="75" y="85" width="15" height="15" fill="white" />
+  <rect x="110" y="85" width="15" height="15" fill="white" />
+  <rect x="75" y="115" width="15" height="15" fill="white" />
+  <rect x="110" y="115" width="15" height="15" fill="white" />
+  
+  <!-- Door -->
+  <rect x="90" y="130" width="20" height="30" fill="white" />
+  
+  <!-- Wrench Icon (Repair Symbol) -->
+  <path d="M140 60c-8.284 0-15-6.716-15-15 0-1.971 0.378-3.855 1.064-5.584l-26.48 26.48 15.832 15.832 26.48-26.48c-1.729 0.686-3.613 1.064-5.584 1.064-8.284 0-15-6.716-15-15s6.716-15 15-15 15 6.716 15 15c0 1.971-0.378 3.855-1.064 5.584l5.584-5.584 10 10-5.584 5.584c1.729-0.686 3.613-1.064 5.584-1.064 8.284 0 15 6.716 15 15s-6.716 15-15 15-15-6.716-15-15c0-1.971 0.378-3.855 1.064-5.584l-26.48 26.48 5.104 5.104 26.48-26.48c-1.729 0.686-3.613 1.064-5.584 1.064z" fill="white" transform="scale(0.5) translate(140, 40)" />
+</svg>
