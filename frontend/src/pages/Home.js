@@ -54,20 +54,37 @@ const Home = () => {
   ];
 
   return (
-    <Box>
+    <Box className="page-fade">
       {/* Hero Section */}
       <Box 
         sx={{
-          bgcolor: 'primary.main',
+          position: 'relative',
           color: 'white',
           py: 8,
           borderRadius: { xs: 0, md: '0 0 50px 50px' },
           boxShadow: 3,
+          minHeight: { xs: '60vh', md: '70vh' },
+          display: 'flex',
+          alignItems: 'center',
+          backgroundImage: `url('/login-bg.jpg')`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
-        <Container maxWidth="lg">
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            bgcolor: 'rgba(0,0,0,0.35)',
+          }}
+        />
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Grid container spacing={4} alignItems="center">
             <Grid item xs={12} md={6}>
+              <Box component={Link} to="/" sx={{ display: 'inline-block', mb: 2 }}>
+                <Box component="img" src="https://i.ibb.co/WNJMKrDy/College-Logo.jpg" alt="PCCOER Logo" sx={{ height: 56, width: 56, borderRadius: '50%', bgcolor: 'white', p: 1, boxShadow: 3 }} />
+              </Box>
               <Typography variant="h2" component="h1" gutterBottom fontWeight="bold">
                 CampusFix
               </Typography>
@@ -126,6 +143,9 @@ const Home = () => {
                   display: { xs: 'none', md: 'block' },
                   margin: '0 auto',
                   borderRadius: '8px',
+                  backgroundColor: 'rgba(255,255,255,0.85)',
+                  p: 2,
+                  objectFit: 'contain',
                 }}
               />
             </Grid>

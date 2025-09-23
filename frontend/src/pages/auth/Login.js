@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import AuthCard from '../../components/AuthCard';
+import PasswordInput from '../../components/PasswordInput';
 
 const Login = () => {
   const { login, error, isAuthenticated, setError } = useAuth();
@@ -32,7 +34,9 @@ const Login = () => {
     validationSchema: Yup.object({
       email: Yup.string()
         .email('Invalid email address')
-        .required('Email is required'),
+        .required('Email is required')
+        .test('is-pccoer', 'Only Pccoer email addresses are allowed', 
+          value => value && value.endsWith('@pccoer.in')),
       password: Yup.string()
         .required('Password is required'),
     }),
@@ -48,48 +52,27 @@ const Login = () => {
   });
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative"
-      style={{
-        backgroundImage: `url('/bg.jpg')`,
-      }}
+    <AuthCard
+      logo={<span className="text-white text-2xl font-bold">CF</span>}
+      title="CampusFix Login"
+      subtitle="Use your email and password to login"
+      showOverlay={false}
+      backgroundImage="/login-bg.jpg"
     >
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent"></div>
-      
-      {/* Login form */}
-      <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-8 animate-fade-in">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">CF</span>
-            </div>
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50/90 border border-red-200/80 text-red-700 px-4 py-3 rounded-xl mb-4" role="alert">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error}
           </div>
-          
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
-            CampusFix Login
-          </h1>
-          
-          <p className="text-center text-gray-600 mb-6">
-            Use your email and password to login
-          </p>
-          
-          {/* Error Alert */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 animate-slide-up">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            </div>
-          )}
-          
-          {/* Form */}
-          <form onSubmit={formik.handleSubmit} className="space-y-4">
+        </div>
+      )}
+      
+      {/* Form */}
+      <form onSubmit={formik.handleSubmit} className="space-y-4">
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -103,10 +86,10 @@ const Login = () => {
                 value={formik.values.email}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
+                className={`w-full px-4 py-3 border rounded-2xl bg-white/70 backdrop-blur placeholder-gray-400 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all duration-300 hover:shadow-md ${
                   formik.touched.email && formik.errors.email
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300 bg-white'
+                    ? 'border-red-300 bg-red-50/80'
+                    : 'border-gray-200 hover:border-sky-300'
                 }`}
                 placeholder="Enter your email"
               />
@@ -120,49 +103,45 @@ const Login = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
-              <div className="relative">
+              <PasswordInput
+                id="password"
+                name="password"
+                value={formik.values.password}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                error={formik.errors.password}
+                touched={formik.touched.password}
+                className="bg-white/70 backdrop-blur rounded-2xl"
+              />
+            </div>
+            
+            {/* Remember me checkbox */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={formik.values.password}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
-                    formik.touched.password && formik.errors.password
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                  placeholder="Enter your password"
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded-md"
                 />
-                <button
-                  type="button"
-                  onClick={handleClickShowPassword}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                  Remember me
+                </label>
               </div>
-              {formik.touched.password && formik.errors.password && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.password}</p>
-              )}
+              <div className="text-sm">
+                <a href="#" className="font-medium text-sky-600 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 rounded-md px-1">
+                  Forgot password?
+                </a>
+              </div>
             </div>
             
             {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
+              className="w-full py-3 rounded-2xl bg-sky-600 text-white font-medium hover:bg-sky-700 disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 transition-colors duration-300 shadow-lg"
             >
               {loading ? (
                 <>
@@ -183,21 +162,27 @@ const Login = () => {
             </button>
           </form>
           
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
+          {/* Register link with enhanced styling */}
+          <div className="mt-8 text-center">
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-4 bg-white/80 backdrop-blur text-sm text-gray-500 rounded-full">Or</span>
+              </div>
+            </div>
+            <p className="text-gray-600 mt-4">
               Don't have an account?{' '}
-              <Link 
-                to="/register" 
-                className="text-primary-600 hover:text-primary-700 font-semibold transition duration-300"
+              <Link
+                to="/register"
+                className="text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 rounded-md px-1"
               >
                 Register here
               </Link>
             </p>
           </div>
-        </div>
-      </div>
-    </div>
+    </AuthCard>
   );
 };
 

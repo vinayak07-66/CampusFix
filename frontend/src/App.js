@@ -14,6 +14,8 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
 import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
 import EventsList from './pages/events/EventsList';
 import EventDetails from './pages/events/EventDetails';
 import EventUpdates from './pages/events/EventUpdates';
@@ -54,7 +56,10 @@ const App = () => {
       return <Navigate to="/login" />;
     }
 
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    // Normalize role to lowercase to match metadata ('admin' | 'student')
+    const role = (user?.role || '').toLowerCase();
+    const normalizedAllowed = allowedRoles.map((r) => r.toLowerCase());
+    if (normalizedAllowed.length > 0 && !normalizedAllowed.includes(role)) {
       return <Navigate to="/dashboard" />;
     }
 
@@ -72,6 +77,8 @@ const App = () => {
       {/* Public Routes with Main Layout */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
         <Route path="/events" element={<EventsList />} />
         <Route path="/events/:id" element={<EventDetails />} />
         <Route path="/event-updates" element={<EventUpdates />} />
@@ -109,6 +116,12 @@ const App = () => {
             <ProtectedRoute>
               <CreateIssue />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/report-issue"
+          element={
+            <Navigate to="/issues/create" />
           }
         />
         <Route

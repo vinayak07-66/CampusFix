@@ -20,16 +20,19 @@ import {
   ListItemText,
   Divider,
 } from '@mui/material';
+
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  Report as ReportIcon,
+  Home as HomeIcon,
   Event as EventIcon,
+  Report as ReportIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
-  Login as LoginIcon,
-  Home as HomeIcon,
+  Dashboard as DashboardIcon,
   AdminPanelSettings as AdminIcon,
+  Info as InfoIcon,
+  Email as EmailIcon,
+  Login as LoginIcon,   // ✅ moved here
 } from '@mui/icons-material';
 
 const MainLayout = () => {
@@ -61,16 +64,15 @@ const MainLayout = () => {
   const getNavigationItems = () => {
     const items = [
       { text: 'Home', icon: <HomeIcon />, path: '/' },
+      { text: 'About', icon: <InfoIcon />, path: '/about' },
+      { text: 'Contact', icon: <EmailIcon />, path: '/contact' },
       { text: 'Events', icon: <EventIcon />, path: '/events' },
-      { text: 'Event Updates', icon: <EventIcon />, path: '/event-updates' },
     ];
 
     if (isAuthenticated) {
       items.push(
         { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-        { text: 'Report Issue', icon: <ReportIcon />, path: '/issues/create' },
-        { text: 'My Issues', icon: <ReportIcon />, path: '/issues' },
-        { text: 'My Events', icon: <EventIcon />, path: '/my-events' },
+        { text: 'Report Issue', icon: <ReportIcon />, path: '/issues/create' }
       );
 
       if (user?.role === 'admin' || user?.role === 'staff') {
@@ -171,14 +173,53 @@ const MainLayout = () => {
 
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
               {navigationItems.map((item) => (
-                <Button
-                  key={item.text}
-                  component={Link}
-                  to={item.path}
-                  sx={{ my: 2, color: 'white', display: 'block' }}
-                >
-                  {item.text}
-                </Button>
+                <Box key={item.text} sx={{ position: 'relative', '&:hover .tooltip': { opacity: 1 } }}>
+                  <Button
+                    component={Link}
+                    to={item.path}
+                    sx={{
+                      my: 2,
+                      mx: 0.5,
+                      color: 'white',
+                      display: 'block',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      padding: '6px 16px',
+                      '&:hover': {
+                        transform: 'scale(1.05)',
+                        backgroundColor: 'primary.dark',
+                        boxShadow: 3,
+                        borderColor: 'rgba(255, 255, 255, 0.6)'
+                      }
+                    }}
+                    startIcon={item.icon}
+                  >
+                    {item.text}
+                  </Button>
+                  <Box
+                    className="tooltip"
+                    sx={{
+                      position: 'absolute',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      bottom: '-20px',
+                      bgcolor: 'grey.800',
+                      color: 'white',
+                      fontSize: '0.75rem',
+                      borderRadius: '4px',
+                      py: 0.5,
+                      px: 1,
+                      opacity: 0,
+                      transition: 'opacity 0.3s',
+                      whiteSpace: 'nowrap',
+                      pointerEvents: 'none',
+                      zIndex: 50
+                    }}
+                  >
+                    Go to {item.text}
+                  </Box>
+                </Box>
               ))}
             </Box>
 

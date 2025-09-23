@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
+import AuthCard from '../../components/AuthCard';
+import PasswordInput from '../../components/PasswordInput';
 
 // List of departments for dropdown
 const departments = [
@@ -30,8 +32,7 @@ const departments = [
 const Register = () => {
   const { register, error, isAuthenticated, setError } = useAuth();
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // Only keep the loading state since password visibility is handled by PasswordInput component
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,14 +44,6 @@ const Register = () => {
     // Clear any previous errors
     setError(null);
   }, [isAuthenticated, navigate, setError]);
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const handleClickShowConfirmPassword = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
 
   const formik = useFormik({
     initialValues: {
@@ -68,7 +61,9 @@ const Register = () => {
         .max(50, 'Name must be less than 50 characters'),
       email: Yup.string()
         .email('Invalid email address')
-        .required('Email is required'),
+        .required('Email is required')
+        .test('is-pccoer', 'Only @pccoer.in email addresses are allowed', 
+          value => value && value.endsWith('@pccoer.in')),
       password: Yup.string()
         .required('Password is required')
         .min(6, 'Password must be at least 6 characters'),
@@ -87,7 +82,7 @@ const Register = () => {
         const { name, email, password, studentId, department } = values;
         
         // Register with Supabase
-        const { data, error: supabaseError } = await supabase.auth.signUp({
+        const { error: supabaseError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -116,48 +111,27 @@ const Register = () => {
   });
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat relative py-8"
-      style={{
-        backgroundImage: `url('/bg.svg')`,
-      }}
+    <AuthCard
+      logo={<span className="text-white text-2xl font-bold">CF</span>}
+      title="Create an account"
+      subtitle="Join CampusFix to report and track campus issues"
+      showOverlay={false}
+      backgroundImage="/login-bg.jpg"
     >
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent"></div>
-      
-      {/* Register form */}
-      <div className="relative z-10 w-full max-w-2xl mx-4">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl p-8 animate-fade-in">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">CF</span>
-            </div>
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50/90 border border-red-200/80 text-red-700 px-4 py-3 rounded-xl mb-4" role="alert" aria-live="polite">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error}
           </div>
-          
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">
-            Register
-          </h1>
-          
-          <p className="text-center text-gray-600 mb-6">
-            Create your CampusFix account
-          </p>
-          
-          {/* Error Alert */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 animate-slide-up">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            </div>
-          )}
-          
-          {/* Form */}
-          <form onSubmit={formik.handleSubmit} className="space-y-4">
+        </div>
+      )}
+      
+      {/* Form */}
+      <form onSubmit={formik.handleSubmit} className="space-y-4">
             {/* Full Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -171,10 +145,10 @@ const Register = () => {
                 value={formik.values.name}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
+                className={`w-full px-4 py-3 border rounded-2xl bg-white/70 backdrop-blur placeholder-gray-400 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition duration-300 ${
                   formik.touched.name && formik.errors.name
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300 bg-white'
+                    ? 'border-red-300 bg-red-50/80'
+                    : 'border-gray-200'
                 }`}
                 placeholder="Enter your full name"
               />
@@ -196,10 +170,10 @@ const Register = () => {
                 value={formik.values.email}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
+                className={`w-full px-4 py-3 border rounded-2xl bg-white/70 backdrop-blur placeholder-gray-400 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition duration-300 ${
                   formik.touched.email && formik.errors.email
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-300 bg-white'
+                    ? 'border-red-300 bg-red-50/80'
+                    : 'border-gray-200'
                 }`}
                 placeholder="Enter your email"
               />
@@ -215,42 +189,18 @@ const Register = () => {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                   Password
                 </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={formik.values.password}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
-                      formik.touched.password && formik.errors.password
-                        ? 'border-red-300 bg-red-50'
-                        : 'border-gray-300 bg-white'
-                    }`}
-                    placeholder="Enter password"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleClickShowPassword}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {formik.touched.password && formik.errors.password && (
-                  <p className="mt-1 text-sm text-red-600">{formik.errors.password}</p>
-                )}
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  autoComplete="new-password"
+                  placeholder="Enter password"
+                  error={formik.errors.password}
+                  touched={formik.touched.password}
+                  className="bg-white/70 backdrop-blur rounded-2xl"
+                />
               </div>
               
               {/* Confirm Password */}
@@ -258,24 +208,18 @@ const Register = () => {
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                   Confirm Password
                 </label>
-                <input
+                <PasswordInput
                   id="confirmPassword"
                   name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
                   value={formik.values.confirmPassword}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
-                    formik.touched.confirmPassword && formik.errors.confirmPassword
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300 bg-white'
-                  }`}
+                  autoComplete="new-password"
                   placeholder="Confirm password"
+                  error={formik.errors.confirmPassword}
+                  touched={formik.touched.confirmPassword}
+                  className="bg-white/70 backdrop-blur rounded-2xl"
                 />
-                {formik.touched.confirmPassword && formik.errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{formik.errors.confirmPassword}</p>
-                )}
               </div>
             </div>
             
@@ -293,10 +237,10 @@ const Register = () => {
                   value={formik.values.studentId}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
+                  className={`w-full px-4 py-3 border rounded-2xl bg-white/70 backdrop-blur placeholder-gray-400 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition duration-300 ${
                     formik.touched.studentId && formik.errors.studentId
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300 bg-white'
+                      ? 'border-red-300 bg-red-50/80'
+                      : 'border-gray-200'
                   }`}
                   placeholder="Enter student ID"
                 />
@@ -316,10 +260,10 @@ const Register = () => {
                   value={formik.values.department}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-300 ${
+                  className={`w-full px-4 py-3 border rounded-2xl bg-white/70 backdrop-blur focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition duration-300 ${
                     formik.touched.department && formik.errors.department
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-gray-300 bg-white'
+                      ? 'border-red-300 bg-red-50/80'
+                      : 'border-gray-200'
                   }`}
                 >
                   <option value="">Select Department</option>
@@ -339,7 +283,7 @@ const Register = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2 mt-6"
+              className="w-full py-3 rounded-2xl bg-sky-600 text-white font-medium hover:bg-sky-700 disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 transition-colors duration-300 mt-6 shadow-lg"
             >
               {loading ? (
                 <>
@@ -366,15 +310,13 @@ const Register = () => {
               Already have an account?{' '}
               <Link 
                 to="/login" 
-                className="text-primary-600 hover:text-primary-700 font-semibold transition duration-300"
+                className="text-sky-600 hover:text-sky-700 font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 rounded-md px-1"
               >
                 Login here
               </Link>
             </p>
           </div>
-        </div>
-      </div>
-    </div>
+    </AuthCard>
   );
 };
 

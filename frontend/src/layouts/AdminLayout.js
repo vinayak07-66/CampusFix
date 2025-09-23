@@ -115,32 +115,92 @@ const AdminLayout = () => {
       <Divider />
       <List>
         {adminItems.map((item) => (
-          <ListItem
-            button
-            key={item.text}
-            component={Link}
-            to={item.path}
-            selected={location.pathname === item.path}
+          <Tooltip 
+            key={item.text} 
+            title={`Go to ${item.text}`} 
+            placement="right"
+            arrow
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
+            <ListItem
+              button
+              component={Link}
+              to={item.path}
+              selected={location.pathname === item.path}
+              sx={{
+                borderRadius: '8px',
+                m: 1,
+                transition: 'all 0.3s',
+                '&:hover': {
+                  backgroundColor: 'primary.light',
+                  transform: 'scale(1.03)',
+                  boxShadow: 2
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  }
+                }
+              }}
+            >
+              <ListItemIcon sx={{ 
+                color: location.pathname === item.path ? 'white' : 'inherit',
+                transition: 'color 0.3s'
+              }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          </Tooltip>
         ))}
       </List>
       <Divider />
       <List>
-        <ListItem button component={Link} to="/">
-          <ListItemIcon>
-            <ArrowBackIcon />
-          </ListItemIcon>
-          <ListItemText primary="Back to Site" />
-        </ListItem>
-        <ListItem button component={Link} to="/dashboard">
-          <ListItemIcon>
-            <HomeIcon />
-          </ListItemIcon>
-          <ListItemText primary="User Dashboard" />
-        </ListItem>
+        <Tooltip title="Return to main website" placement="right" arrow>
+          <ListItem 
+            button 
+            component={Link} 
+            to="/"
+            sx={{
+              borderRadius: '8px',
+              m: 1,
+              transition: 'all 0.3s',
+              '&:hover': {
+                backgroundColor: 'secondary.light',
+                transform: 'scale(1.03)',
+                boxShadow: 2
+              }
+            }}
+          >
+            <ListItemIcon>
+              <ArrowBackIcon />
+            </ListItemIcon>
+            <ListItemText primary="Back to Site" />
+          </ListItem>
+        </Tooltip>
+        <Tooltip title="Go to your personal dashboard" placement="right" arrow>
+          <ListItem 
+            button 
+            component={Link} 
+            to="/dashboard"
+            sx={{
+              borderRadius: '8px',
+              m: 1,
+              transition: 'all 0.3s',
+              '&:hover': {
+                backgroundColor: 'secondary.light',
+                transform: 'scale(1.03)',
+                boxShadow: 2
+              }
+            }}
+          >
+            <ListItemIcon>
+              <HomeIcon />
+            </ListItemIcon>
+            <ListItemText primary="User Dashboard" />
+          </ListItem>
+        </Tooltip>
       </List>
     </div>
   );

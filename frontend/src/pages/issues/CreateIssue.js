@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDropzone } from 'react-dropzone';
 
-const ReportIssue = () => {
+const CreateIssue = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [formData, setFormData] = useState({
@@ -425,4 +425,4 @@ const ReportIssue = () => {
   );
 };
 
-export default ReportIssue;
+export default CreateIssue;

@@ -155,6 +155,14 @@ export const AuthProvider = ({ children }) => {
           department: data.user.user_metadata?.department || '',
           role: data.user.user_metadata?.role || 'student'
         });
+
+        // Ensure a profiles row exists
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          full_name: name,
+          email,
+          department,
+        }, { onConflict: 'id' });
       }
       
       setLoading(false);
@@ -186,11 +194,23 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
+      // 1) Update auth metadata
       const { data, error } = await supabase.auth.updateUser({
         data: userData
       });
-      
       if (error) throw error;
+
+      // 2) Upsert into profiles table for app-wide visibility
+      const currentUser = data.user;
+      const upsertPayload = {
+        id: currentUser.id,
+        full_name: userData.name ?? currentUser.user_metadata?.name ?? '',
+        email: currentUser.email,
+        department: userData.department ?? currentUser.user_metadata?.department ?? null,
+        profile_image: userData.profileImage ?? null,
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('profiles').upsert(upsertPayload, { onConflict: 'id' });
       
       if (data.user) {
         setUser({
