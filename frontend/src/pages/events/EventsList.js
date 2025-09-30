@@ -67,94 +67,157 @@ const EventsList = () => {
       setLoading(true);
       setError(null);
       
-      // Calculate pagination
-      const from = (page - 1) * 9;
-      const to = from + 8; // 9 items per page (0-8)
+      let allEvents = [];
       
-      // Start building the query
-      let query = supabase
-        .from('events')
-        .select('*', { count: 'exact' });
+      // First try to fetch from Supabase
+      try {
+        // Calculate pagination
+        const from = (page - 1) * 9;
+        const to = from + 8; // 9 items per page (0-8)
+        
+        // Start building the query
+        let query = supabase
+          .from('events')
+          .select('*', { count: 'exact' });
+        
+        // Apply filters
+        if (search) {
+          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`);
+        }
+        
+        if (category) {
+          query = query.eq('category', category);
+        }
+        
+        // Apply time frame filter
+        const now = new Date().toISOString();
+        if (timeFrame === 'upcoming') {
+          query = query.gte('start_date', now);
+        } else if (timeFrame === 'past') {
+          query = query.lt('start_date', now);
+        }
+        
+        // If showing only registered events
+        if (showRegistered && user) {
+          // First get the event IDs the user is registered for
+          const { data: registrations } = await supabase
+            .from('event_registrations')
+            .select('event_id')
+            .eq('user_id', user.id);
+          
+          if (registrations && registrations.length > 0) {
+            const eventIds = registrations.map(reg => reg.event_id);
+            query = query.in('id', eventIds);
+          } else {
+            // If user has no registrations, return empty result
+            setEvents([]);
+            setTotalPages(0);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Order by start date
+        query = query.order('start_date', { ascending: timeFrame !== 'past' });
+        
+        // Apply pagination
+        const { data, error: supabaseError, count } = await query.range(from, to);
+        
+        if (supabaseError) throw supabaseError;
+        
+        // Process events to match the expected format
+        const processedEvents = data.map(event => ({
+          _id: event.id,
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          category: event.category,
+          startDate: event.start_date,
+          endDate: event.end_date,
+          image: event.image_url,
+          registered: false // Will be updated below if needed
+        }));
+        
+        allEvents = processedEvents;
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        // Continue with local storage fallback
+      }
+
+      // Also check local storage for demo events
+      try {
+        const localEvents = JSON.parse(localStorage.getItem('demo_events') || '[]');
+        const processedLocalEvents = localEvents.map(event => ({
+          _id: event.id,
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          category: event.category || 'Other',
+          startDate: event.date,
+          endDate: event.date,
+          image: event.banner_url,
+          registered: false
+        }));
+        
+        // Merge local events with database events
+        allEvents = [...processedLocalEvents, ...allEvents];
+      } catch (err) {
+        console.error('Error parsing local events:', err);
+      }
       
-      // Apply filters
+      // Apply client-side filtering for local events
+      let filteredEvents = allEvents;
+      
       if (search) {
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`);
+        filteredEvents = filteredEvents.filter(event => 
+          event.title.toLowerCase().includes(search.toLowerCase()) ||
+          event.description.toLowerCase().includes(search.toLowerCase()) ||
+          event.location.toLowerCase().includes(search.toLowerCase())
+        );
       }
       
       if (category) {
-        query = query.eq('category', category);
+        filteredEvents = filteredEvents.filter(event => event.category === category);
       }
       
       // Apply time frame filter
-      const now = new Date().toISOString();
+      const now = new Date();
       if (timeFrame === 'upcoming') {
-        query = query.gte('start_date', now);
+        filteredEvents = filteredEvents.filter(event => new Date(event.startDate) > now);
       } else if (timeFrame === 'past') {
-        query = query.lt('start_date', now);
+        filteredEvents = filteredEvents.filter(event => new Date(event.startDate) <= now);
       }
-      
-      // If showing only registered events
-      if (showRegistered && user) {
-        // First get the event IDs the user is registered for
-        const { data: registrations } = await supabase
-          .from('event_registrations')
-          .select('event_id')
-          .eq('user_id', user.id);
-        
-        if (registrations && registrations.length > 0) {
-          const eventIds = registrations.map(reg => reg.event_id);
-          query = query.in('id', eventIds);
-        } else {
-          // If user has no registrations, return empty result
-          setEvents([]);
-          setTotalPages(0);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Order by start date
-      query = query.order('start_date', { ascending: timeFrame !== 'past' });
-      
-      // Apply pagination
-      const { data, error: supabaseError, count } = await query.range(from, to);
-      
-      if (supabaseError) throw supabaseError;
-      
-      // Process events to match the expected format
-      const processedEvents = data.map(event => ({
-        _id: event.id,
-        title: event.title,
-        description: event.description,
-        location: event.location,
-        category: event.category,
-        startDate: event.start_date,
-        endDate: event.end_date,
-        image: event.image_url,
-        registered: false // Will be updated below if needed
-      }));
       
       // Check which events the user is registered for
       if (user) {
-        const { data: userRegistrations } = await supabase
-          .from('event_registrations')
-          .select('event_id')
-          .eq('user_id', user.id);
-        
-        if (userRegistrations && userRegistrations.length > 0) {
-          const registeredEventIds = userRegistrations.map(reg => reg.event_id);
+        try {
+          const { data: userRegistrations } = await supabase
+            .from('event_registrations')
+            .select('event_id')
+            .eq('user_id', user.id);
           
-          // Mark events as registered
-          processedEvents.forEach(event => {
-            if (registeredEventIds.includes(event._id)) {
-              event.registered = true;
-            }
-          });
+          if (userRegistrations && userRegistrations.length > 0) {
+            const registeredEventIds = userRegistrations.map(reg => reg.event_id);
+            
+            // Mark events as registered
+            filteredEvents.forEach(event => {
+              if (registeredEventIds.includes(event._id)) {
+                event.registered = true;
+              }
+            });
+          }
+        } catch (regError) {
+          console.error('Error fetching registrations:', regError);
         }
       }
       
-      setEvents(processedEvents);
-      setTotalPages(Math.ceil(count / 9));
+      // Apply pagination
+      const startIndex = (page - 1) * 9;
+      const endIndex = startIndex + 9;
+      const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
+      
+      setEvents(paginatedEvents);
+      setTotalPages(Math.ceil(filteredEvents.length / 9));
     } catch (err) {
       console.error('Error fetching events:', err);
       setError('Failed to load events. Please try again.');

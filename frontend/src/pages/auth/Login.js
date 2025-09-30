@@ -7,7 +7,7 @@ import AuthCard from '../../components/AuthCard';
 import PasswordInput from '../../components/PasswordInput';
 
 const Login = () => {
-  const { login, error, isAuthenticated, setError } = useAuth();
+  const { login, error, isAuthenticated, setError, user } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,12 @@ const Login = () => {
   useEffect(() => {
     // Redirect if already authenticated
     if (isAuthenticated) {
-      navigate('/dashboard');
+      const role = (user?.role || '').toLowerCase();
+      if (role === 'admin' || role === 'staff') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
     
     // Clear any previous errors
@@ -46,7 +51,12 @@ const Login = () => {
       setLoading(false);
       
       if (success) {
-        navigate('/dashboard');
+        const role = (user?.role || '').toLowerCase();
+        if (role === 'admin' || role === 'staff') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       }
     },
   });

@@ -105,7 +105,7 @@ const EventForm = () => {
       additionalInfo: '',
     },
     validationSchema,
-    onSubmit: async (values) => {
+    onSubmit: async (values) =>  {
       try {
         setLoading(true);
         setError(null);

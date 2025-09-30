@@ -65,6 +65,8 @@ const Profile = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [userIssues, setUserIssues] = useState([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
+  const [userReports, setUserReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   useEffect(() => {
     // Clear any previous errors or success messages
@@ -72,8 +74,9 @@ const Profile = () => {
     setSuccess(null);
     setAuthError(null);
     
-    // Fetch user's reported issues
+    // Fetch user's reported issues and reports
     fetchUserIssues();
+    fetchUserReports();
   }, [setAuthError, user]); // Add user to dependency array since fetchUserIssues depends on user
   
   // Fetch user's reported issues
@@ -98,6 +101,48 @@ const Profile = () => {
       setError('Failed to load your reported issues.');
     } finally {
       setIssuesLoading(false);
+    }
+  };
+
+  // Fetch user's submitted reports
+  const fetchUserReports = async () => {
+    if (!user) return;
+    
+    try {
+      setReportsLoading(true);
+      
+      // First try to fetch from Supabase
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('student_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      let reports = data || [];
+      
+      // Also check local storage for demo reports
+      try {
+        const localReports = JSON.parse(localStorage.getItem('demo_reports') || '[]');
+        const userLocalReports = localReports.filter(report => report.student_id === user.id);
+        reports = [...userLocalReports, ...reports];
+      } catch (err) {
+        console.error('Error parsing local reports:', err);
+      }
+      
+      setUserReports(reports);
+    } catch (err) {
+      console.error('Error fetching user reports:', err);
+      // Fallback to local storage only
+      try {
+        const localReports = JSON.parse(localStorage.getItem('demo_reports') || '[]');
+        const userLocalReports = localReports.filter(report => report.student_id === user.id);
+        setUserReports(userLocalReports);
+      } catch (localErr) {
+        console.error('Error parsing local reports:', localErr);
+        setUserReports([]);
+      }
+    } finally {
+      setReportsLoading(false);
     }
   };
 
@@ -748,6 +793,103 @@ const Profile = () => {
                     className="mt-4 inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300"
                   >
                     Report Your First Issue
+                  </Link>
+                </div>
+              )}
+            </div>
+            
+            {/* User's Submitted Reports */}
+            <div className="bg-white shadow-md rounded-2xl p-6 transition duration-300 hover:shadow-lg mb-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  My Submitted Reports
+                </h2>
+                <Link to={`/reports/create`} className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition duration-300">
+                   <span>Submit New Report</span>
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                   </svg>
+                 </Link>
+              </div>
+              
+              <div className="border-b border-gray-200 mb-6"></div>
+              
+              {reportsLoading ? (
+                <div className="flex justify-center py-8">
+                  <CircularProgress />
+                </div>
+              ) : userReports.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userReports.map((report) => (
+                    <div 
+                      key={report.id} 
+                      className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition duration-300 transform hover:scale-105"
+                    >
+                      {report.photo_url && (
+                        <div className="h-40 overflow-hidden">
+                          <img 
+                            src={report.photo_url} 
+                            alt={report.title} 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="text-lg font-semibold text-gray-800 line-clamp-1">{report.title}</h3>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            report.status === 'Pending' 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : report.status === 'In Progress' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {report.status}
+                          </span>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-2 line-clamp-2">{report.description}</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                            {report.category}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            report.priority === 'Critical' 
+                              ? 'bg-red-100 text-red-800' 
+                              : report.priority === 'High' 
+                              ? 'bg-orange-100 text-orange-800' 
+                              : report.priority === 'Medium' 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {report.priority}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-500">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </span>
+                          <Link 
+                            to={`/reports`} 
+                            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                          >
+                            View Details
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">You haven't submitted any reports yet.</p>
+                  <Link 
+                    to={`/reports/create`} 
+                    className="mt-4 inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300"
+                  >
+                    Submit Your First Report
                   </Link>
                 </div>
               )}

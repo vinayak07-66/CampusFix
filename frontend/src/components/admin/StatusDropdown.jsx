@@ -4,11 +4,11 @@ import { ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../supabaseClient';
 
-const STATUS_OPTIONS = ['Pending', 'In Progress', 'Completed'];
+const STATUS_OPTIONS = ['Pending', 'In Progress', 'Resolved'];
 
 const getStatusChipClasses = (status) => {
   switch (status) {
-    case 'Completed':
+    case 'Resolved':
       return 'bg-green-100 text-green-800 border-green-200';
     case 'In Progress':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';

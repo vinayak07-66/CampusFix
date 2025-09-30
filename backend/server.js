@@ -15,6 +15,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging for /api/issues
+app.use('/api/issues', (req, res, next) => {
+  console.log('Request to /api/issues:', {
+    method: req.method,
+    path: req.originalUrl,
+    body: req.body,
+    userId: req.user && req.user.id
+  });
+  next();
+});
+
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -45,8 +56,9 @@ const connectDB = async () => {
     });
     console.log('MongoDB connected successfully');
   } catch (error) {
-    console.error('MongoDB connection error:', error.message);
-    process.exit(1);
+    const message = `MongoDB connection failed. Check MONGO_URI and network. Error: ${error.message}`;
+    console.error(message);
+    throw new Error(message);
   }
 };
 

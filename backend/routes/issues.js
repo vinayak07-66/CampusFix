@@ -22,11 +22,21 @@ router.post(
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array().map(e => ({ field: e.param, message: e.msg }))
+      });
     }
 
     try {
       const { title, description, location, category, priority, media } = req.body;
+
+      // Log incoming request for debugging
+      console.log('POST /api/issues payload:', {
+        body: req.body,
+        userId: req.user && req.user.id
+      });
 
       // Create new issue
       const newIssue = new Issue({
@@ -35,7 +45,7 @@ router.post(
         location,
         category,
         priority: priority || 'Medium',
-        media: media || [],
+        media: Array.isArray(media) ? media.filter(m => m && (m.type || m.url)) : [],
         reportedBy: req.user.id
       });
 
@@ -44,8 +54,22 @@ router.post(
 
       res.status(201).json(issue);
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server error');
+      // Handle validation errors (including enum errors like invalid category)
+      if (err.name === 'ValidationError') {
+        const formatted = Object.values(err.errors).map(e => ({ field: e.path, message: e.message }));
+        return res.status(400).json({ success: false, message: 'Validation failed', errors: formatted });
+      }
+
+      // Enhanced logging for save failures
+      console.error('Failed to save Issue:', {
+        error: err && err.message,
+        name: err && err.name,
+        code: err && err.code,
+        stack: err && err.stack,
+        userId: req.user && req.user.id,
+        payload: req.body
+      });
+      return res.status(500).json({ success: false, message: 'Server error while creating issue' });
     }
   }
 );

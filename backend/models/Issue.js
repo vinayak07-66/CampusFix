@@ -20,17 +20,20 @@ const IssueSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Please select a category'],
-    enum: [
-      'Electrical',
-      'Plumbing',
-      'Structural',
-      'Furniture',
-      'Equipment',
-      'Network',
-      'Security',
-      'Cleanliness',
-      'Other'
-    ]
+    enum: {
+      values: [
+        'Electrical',
+        'Plumbing',
+        'Structural',
+        'Furniture',
+        'Equipment',
+        'Network',
+        'Security',
+        'Cleanliness',
+        'Other'
+      ],
+      message: 'Invalid category. Must be one of Electrical, Plumbing, Structural, Furniture, Equipment, Network, Security, Cleanliness, Other'
+    }
   },
   priority: {
     type: String,
@@ -47,11 +50,9 @@ const IssueSchema = new mongoose.Schema({
       type: {
         type: String,
         enum: ['image', 'video'],
-        required: true
       },
       url: {
         type: String,
-        required: true
       },
       publicId: String
     }

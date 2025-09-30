@@ -69,7 +69,6 @@ const categories = [
   'Plumbing',
   'Structural',
   'Furniture',
-  'HVAC',
   'Network',
   'Security',
   'Cleaning',
@@ -178,11 +177,55 @@ const IssuesList = () => {
         }
       }));
       
-      setIssues(formattedIssues);
+      // Merge backend issues with locally stored demo issues (show newest first)
+      let merged = formattedIssues;
+      try {
+        const localDemo = JSON.parse(localStorage.getItem('demo_issues') || '[]');
+        const asStudentCards = localDemo.map((d) => ({
+          _id: d.id,
+          title: d.title,
+          description: d.description,
+          location: d.location,
+          status: d.status,
+          priority: d.priority,
+          category: d.category,
+          media: d.image_url ? [d.image_url] : [],
+          createdAt: d.created_at,
+          user: { email: '', name: d.profiles?.name || 'You' }
+        }));
+        merged = [...asStudentCards, ...formattedIssues].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      } catch (_) {}
+      setIssues(merged);
     } catch (err) {
       console.error('Error fetching issues:', err);
-      setError('Failed to load issues. Please try again later.');
-      setLoading(false);
+      // Fallback to demo data when backend/table is unavailable
+      const demo = [
+        {
+          _id: 'demo-s-1',
+          title: 'Broken fan',
+          description: 'Fan not working in classroom',
+          location: 'Room 101',
+          status: 'Pending',
+          priority: 'Medium',
+          category: 'Electrical',
+          media: [],
+          createdAt: new Date().toISOString(),
+          user: { email: 'john@pccoer.in', name: 'John Doe' }
+        },
+        {
+          _id: 'demo-s-2',
+          title: 'Water leakage in washroom',
+          description: 'Continuous water leakage observed near sink',
+          location: 'Block B - 2nd Floor',
+          status: 'In Progress',
+          priority: 'High',
+          category: 'Plumbing',
+          media: [],
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          user: { email: 'jane@pccoer.in', name: 'Jane Smith' }
+        }
+      ];
+      setIssues(demo);
     } finally {
       setLoading(false);
     }

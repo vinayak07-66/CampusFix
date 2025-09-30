@@ -21,7 +21,23 @@ const IssueTable = () => {
         .select('id, student_id, title, description, image_url, status, created_at, profiles!inner(name)')
         .order('created_at', { ascending: false });
       if (fetchError) throw fetchError;
-      setIssues(data || []);
+      let rows = data || [];
+      // Merge locally stored demo issues for admin view
+      try {
+        const localDemo = JSON.parse(localStorage.getItem('demo_issues') || '[]');
+        const adminRows = localDemo.map((d) => ({
+          id: d.id,
+          student_id: d.user_id,
+          title: d.title,
+          description: d.description,
+          image_url: d.image_url || '',
+          status: d.status,
+          created_at: d.created_at,
+          profiles: { name: d.profiles?.name || 'Student' }
+        }));
+        rows = [...adminRows, ...rows];
+      } catch (_) {}
+      setIssues(rows);
     } catch (err) {
       setError(err.message || 'Failed to fetch issues');
       toast.error(err.message || 'Failed to fetch issues');

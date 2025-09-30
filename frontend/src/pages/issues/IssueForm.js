@@ -37,7 +37,6 @@ const categories = [
   'Plumbing',
   'Structural',
   'Furniture',
-  'HVAC',
   'Network',
   'Security',
   'Cleaning',

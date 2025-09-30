@@ -23,10 +23,16 @@ import EventUpdates from './pages/events/EventUpdates';
 // Protected Pages - Student
 import Dashboard from './pages/user/Dashboard';
 import Profile from './pages/user/Profile';
+import ProfileEdit from './pages/user/ProfileEdit';
 import IssuesList from './pages/issues/IssuesList';
 import IssueDetails from './pages/issues/IssueDetail';
 import CreateIssue from './pages/issues/CreateIssue';
 import MyEvents from './pages/events/EventBanner';
+
+// New Report Pages
+import CreateReport from './pages/reports/CreateReport';
+import ReportsList from './pages/reports/ReportsList';
+import EventsListPage from './pages/events/EventsListPage';
 
 // Protected Pages - Admin
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -35,6 +41,8 @@ import ManageIssues from './pages/admin/IssueManagement';
 import ManageEvents from './pages/admin/EventManagement';
 import CreateEvent from './pages/admin/CreateEvent';
 import EditEvent from './pages/admin/EditEvent';
+import ReportsManagement from './pages/admin/ReportsManagement';
+import EventsManagement from './pages/admin/EventsManagement';
 
 // Error Pages
 import NotFound from './pages/NotFound';
@@ -103,6 +111,14 @@ const App = () => {
           }
         />
         <Route
+          path="/profile/edit"
+          element={
+            <ProtectedRoute>
+              <ProfileEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/issues"
           element={
             <ProtectedRoute>
@@ -140,6 +156,30 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <ReportsList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/create"
+          element={
+            <ProtectedRoute>
+              <CreateReport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/events-list"
+          element={
+            <ProtectedRoute>
+              <EventsListPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Admin Routes */}
@@ -169,10 +209,26 @@ const App = () => {
           }
         />
         <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+              <ReportsManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/events"
           element={
             <ProtectedRoute allowedRoles={['admin', 'staff']}>
               <ManageEvents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/events-management"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+              <EventsManagement />
             </ProtectedRoute>
           }
         />

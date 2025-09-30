@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [error] = useState(null);
   const dropdownRef = useRef(null);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [userReports, setUserReports] = useState([]);
   
   // Issue form state
   const [issueForm, setIssueForm] = useState({
@@ -39,7 +40,6 @@ const Dashboard = () => {
     'Plumbing',
     'Structural',
     'Furniture',
-    'HVAC',
     'Network',
     'Security',
     'Cleaning',
@@ -242,6 +242,39 @@ const Dashboard = () => {
       } else {
         setUpcomingEvents(events || []);
       }
+
+      // Fetch user's submitted reports
+      try {
+        // First try to fetch from Supabase
+        let reports = [];
+        try {
+          const { data, error } = await supabase
+            .from('reports')
+            .select('*')
+            .eq('student_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(3);
+
+          if (error) throw error;
+          reports = data || [];
+        } catch (dbError) {
+          console.error('Database error:', dbError);
+          // Continue with local storage fallback
+        }
+
+        // Also check local storage for demo reports
+        try {
+          const localReports = JSON.parse(localStorage.getItem('demo_reports') || '[]');
+          const userLocalReports = localReports.filter(report => report.student_id === user.id);
+          reports = [...userLocalReports, ...reports];
+        } catch (err) {
+          console.error('Error parsing local reports:', err);
+        }
+        
+        setUserReports(reports.slice(0, 3)); // Show only latest 3
+      } catch (err) {
+        console.error('Error fetching user reports:', err);
+      }
       
       setLoading(false);
     } catch (err) {
@@ -359,6 +392,77 @@ const Dashboard = () => {
                   </Link>
                 </div>
                 <StudentIssueList userId={user?.id} limit={20} />
+              </div>
+
+              {/* My Reports Card */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    My Reports
+                  </h2>
+                  <Link to="/reports" className="text-sm font-medium text-green-600 hover:text-green-800 transition duration-200">
+                    View All
+                  </Link>
+                </div>
+                
+                {userReports.length > 0 ? (
+                  <div className="space-y-3">
+                    {userReports.map((report) => (
+                      <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-800 line-clamp-1">{report.title}</h3>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            report.status === 'Pending' 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : report.status === 'In Progress' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {report.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{report.description}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                              {report.category}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              report.priority === 'Critical' 
+                                ? 'bg-red-100 text-red-800' 
+                                : report.priority === 'High' 
+                                ? 'bg-orange-100 text-orange-800' 
+                                : report.priority === 'Medium' 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {report.priority}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p className="text-gray-500 text-sm">No reports submitted yet</p>
+                    <Link 
+                      to="/reports/create" 
+                      className="mt-2 inline-block text-sm font-medium text-green-600 hover:text-green-800"
+                    >
+                      Submit your first report
+                    </Link>
+                  </div>
+                )}
               </div>
               
               {/* Upcoming Events Card */}

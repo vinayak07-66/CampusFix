@@ -8,7 +8,7 @@ module.exports = async function(req, res, next) {
 
   // Check if no token
   if (!token) {
-    return res.status(401).json({ msg: 'No token, authorization denied' });
+    return res.status(401).json({ success: false, message: 'Authentication required' });
   }
 
   try {
@@ -21,11 +21,11 @@ module.exports = async function(req, res, next) {
     // Check if user exists
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
-      return res.status(401).json({ msg: 'Token is not valid' });
+      return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
     next();
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    res.status(401).json({ success: false, message: 'Authentication required' });
   }
 };

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { motion } from 'framer-motion';
 
-const statusSteps = ['Pending', 'In Progress', 'Completed'];
+const statusSteps = ['Pending', 'In Progress', 'Resolved'];
 
 const Step = ({ label, active, done }) => (
   <div className="flex items-center">
