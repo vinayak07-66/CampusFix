@@ -150,19 +150,29 @@ const IssueForm = () => {
           imageUrl = publicUrl;
         }
         
-        // Then create the issue with the media URL
+        // Build issue payload with only available fields
         const issueData = {
           title: values.title,
           description: values.description,
-          location: values.location,
-          category: values.category,
-          priority: values.priority,
           status: 'Pending',
           user_id: user.id,
-          image_url: imageUrl,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
+
+        // Only include optional fields if they have values
+        if (values.location) {
+          issueData.location = values.location;
+        }
+        if (values.category) {
+          issueData.category = values.category;
+        }
+        if (values.priority) {
+          issueData.priority = values.priority;
+        }
+        if (imageUrl) {
+          issueData.image_url = imageUrl;
+        }
         
         const { data, error: insertError } = await supabase
           .from('issues')

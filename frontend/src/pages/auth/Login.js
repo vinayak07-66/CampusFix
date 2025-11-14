@@ -9,7 +9,6 @@ import PasswordInput from '../../components/PasswordInput';
 const Login = () => {
   const { login, error, isAuthenticated, setError, user } = useAuth();
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -25,11 +24,7 @@ const Login = () => {
     
     // Clear any previous errors
     setError(null);
-  }, [isAuthenticated, navigate, setError]);
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
+  }, [isAuthenticated, navigate, setError, user]);
 
   const formik = useFormik({
     initialValues: {
@@ -47,11 +42,10 @@ const Login = () => {
     }),
     onSubmit: async (values) => {
       setLoading(true);
-      const success = await login(values.email, values.password);
+      const result = await login(values.email, values.password);
       setLoading(false);
-      
-      if (success) {
-        const role = (user?.role || '').toLowerCase();
+      if (result.success) {
+        const role = (result.user?.role || '').toLowerCase();
         if (role === 'admin' || role === 'staff') {
           navigate('/admin');
         } else {
@@ -141,9 +135,12 @@ const Login = () => {
                 </label>
               </div>
               <div className="text-sm">
-                <a href="#" className="font-medium text-sky-600 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 rounded-md px-1">
+                <button
+                  type="button"
+                  className="font-medium text-sky-600 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-400 rounded-md px-1"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
             </div>
             

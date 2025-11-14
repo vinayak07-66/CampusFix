@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabaseClient';
 import { motion } from 'framer-motion';
@@ -12,13 +12,11 @@ const ReportManagement = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async (withLoader = false) => {
     try {
-      setLoading(true);
+      if (withLoader) {
+        setLoading(true);
+      }
       
       // First try to fetch from Supabase
       let reports = [];
@@ -49,9 +47,9 @@ const ReportManagement = () => {
         const transformedLocalReports = localReports.map(report => ({
           ...report,
           users: {
-            name: 'Demo User',
-            email: 'demo@example.com',
-            student_id: report.student_id
+            name: report.student_name || 'Demo User',
+            email: report.student_email || 'demo@example.com',
+            student_id: report.student_number || report.student_id
           }
         }));
         reports = [...transformedLocalReports, ...reports];
@@ -66,7 +64,48 @@ const ReportManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchReports(true);
+  }, [fetchReports]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('reports-admin-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => {
+          fetchReports();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchReports]);
+
+  useEffect(() => {
+    const handleStorageUpdate = (event) => {
+      if (!event || event.key === 'demo_reports') {
+        fetchReports();
+      }
+    };
+
+    const handleCustomUpdate = () => {
+      fetchReports();
+    };
+
+    window.addEventListener('storage', handleStorageUpdate);
+    window.addEventListener('demo_reports_updated', handleCustomUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('demo_reports_updated', handleCustomUpdate);
+    };
+  }, [fetchReports]);
 
   const updateReportStatus = async (reportId, newStatus) => {
     try {
@@ -92,6 +131,8 @@ const ReportManagement = () => {
             : report
         );
         localStorage.setItem('demo_reports', JSON.stringify(updatedLocalReports));
+        // Notify any listeners in this tab (storage event doesn't fire in same tab)
+        window.dispatchEvent(new CustomEvent('demo_reports_updated', { detail: { reportId, type: 'status_update', status: newStatus } }));
       } catch (localErr) {
         console.error('Local storage update error:', localErr);
       }
@@ -258,6 +299,14 @@ const ReportManagement = () => {
                     <div className="text-sm text-gray-500 mt-1">
                       Submitted: {formatDate(report.created_at)}
                     </div>
+                    {report.location && (
+                      <div className="text-sm text-gray-600 mt-2 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 12.414A2 2 0 0012 12a2 2 0 00-1.414.414l-4.243 4.243M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span><span className="font-medium">Location:</span> {report.location}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

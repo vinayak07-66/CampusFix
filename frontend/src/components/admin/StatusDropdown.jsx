@@ -18,22 +18,99 @@ const getStatusChipClasses = (status) => {
   }
 };
 
-const StatusDropdown = ({ issueId, status, onStatusChange }) => {
+const StatusDropdown = ({ issueId, status, onStatusChange, isReport = false }) => {
   const [updating, setUpdating] = useState(false);
 
   const handleSelect = async (nextStatus) => {
     if (nextStatus === status) return;
+    if (!issueId) {
+      toast.error('Invalid item ID');
+      return;
+    }
+    
     try {
       setUpdating(true);
-      const { error } = await supabase
-        .from('issues')
-        .update({ status: nextStatus })
-        .eq('id', issueId);
-      if (error) throw error;
-      toast.success('Status updated');
-      onStatusChange?.(nextStatus);
+      
+      if (isReport) {
+        // Handle report status update in localStorage
+        try {
+          const storedReportsStr = localStorage.getItem('demo_reports');
+          if (!storedReportsStr) {
+            throw new Error('No reports found in storage');
+          }
+          
+          const storedReports = JSON.parse(storedReportsStr);
+          if (!Array.isArray(storedReports)) {
+            throw new Error('Invalid reports data format');
+          }
+          
+          const reportIndex = storedReports.findIndex((report) => report.id === issueId);
+          if (reportIndex === -1) {
+            throw new Error('Report not found');
+          }
+          
+          const updatedReports = storedReports.map((report) =>
+            report.id === issueId
+              ? { ...report, status: nextStatus, updated_at: new Date().toISOString() }
+              : report
+          );
+          
+          localStorage.setItem('demo_reports', JSON.stringify(updatedReports));
+          
+          // Dispatch custom event to notify other components
+          try {
+            window.dispatchEvent(new CustomEvent('demo_reports_updated', {
+              detail: { id: issueId, status: nextStatus, type: 'status_update' }
+            }));
+          } catch (eventErr) {
+            console.warn('Failed to dispatch update event:', eventErr);
+          }
+          
+          // Also try to update in Supabase if possible (non-blocking)
+          try {
+            const { error } = await supabase
+              .from('reports')
+              .update({ status: nextStatus, updated_at: new Date().toISOString() })
+              .eq('id', issueId);
+            if (error) {
+              console.warn('Supabase update failed, but localStorage updated:', error);
+            }
+          } catch (supabaseErr) {
+            // Non-critical error - localStorage update succeeded
+            console.warn('Supabase update skipped:', supabaseErr);
+          }
+          
+          toast.success('Report status updated successfully');
+          onStatusChange?.(nextStatus);
+        } catch (localErr) {
+          console.error('Error updating report in localStorage:', localErr);
+          throw new Error(localErr.message || 'Failed to update report status');
+        }
+      } else {
+        // Handle issue status update in Supabase
+        try {
+          const { error } = await supabase
+            .from('issues')
+            .update({ status: nextStatus, updated_at: new Date().toISOString() })
+            .eq('id', issueId);
+          
+          if (error) {
+            console.error('Supabase error:', error);
+            throw new Error(error.message || 'Failed to update issue status');
+          }
+          
+          toast.success('Issue status updated successfully');
+          onStatusChange?.(nextStatus);
+        } catch (supabaseErr) {
+          console.error('Error updating issue:', supabaseErr);
+          throw supabaseErr;
+        }
+      }
     } catch (err) {
-      toast.error(err.message || 'Failed to update status');
+      console.error('Status update error:', err);
+      const errorMessage = err?.message || 'Failed to update status. Please try again.';
+      toast.error(errorMessage);
+      // Don't call onStatusChange on error to keep UI consistent
     } finally {
       setUpdating(false);
     }

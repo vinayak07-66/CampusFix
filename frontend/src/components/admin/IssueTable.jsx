@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 import StatusDropdown from './StatusDropdown';
-import { toast } from 'sonner';
 
 const tableHeaderClass = 'px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase bg-gray-50';
 const cellClass = 'px-4 py-3 align-top text-sm text-gray-800 border-t';
@@ -12,35 +11,53 @@ const IssueTable = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Helper function to create safe fallback issue
+  const createSafeIssue = (issue) => ({
+    id: issue.id || 'N/A',
+    student_id: issue.student_id || issue.user_id || 'N/A',
+    title: issue.title || 'Untitled',
+    description: issue.description || 'No description provided',
+    image_url: issue.image_url || null,
+    status: issue.status || 'Pending',
+    created_at: issue.created_at || new Date().toISOString(),
+    profiles: issue.profiles || { name: 'Unknown' },
+    category: issue.category || 'General',
+    priority: issue.priority || 'Normal',
+    location: issue.location || 'N/A',
+  });
+
   const fetchIssues = async () => {
     try {
       setLoading(true);
       setError(null);
-      const { data, error: fetchError } = await supabase
+      
+      // Try with profiles join first
+      let { data, error: fetchError } = await supabase
         .from('issues')
-        .select('id, student_id, title, description, image_url, status, created_at, profiles!inner(name)')
+        .select('*, profiles(name, full_name)')
         .order('created_at', { ascending: false });
-      if (fetchError) throw fetchError;
-      let rows = data || [];
-      // Merge locally stored demo issues for admin view
-      try {
-        const localDemo = JSON.parse(localStorage.getItem('demo_issues') || '[]');
-        const adminRows = localDemo.map((d) => ({
-          id: d.id,
-          student_id: d.user_id,
-          title: d.title,
-          description: d.description,
-          image_url: d.image_url || '',
-          status: d.status,
-          created_at: d.created_at,
-          profiles: { name: d.profiles?.name || 'Student' }
-        }));
-        rows = [...adminRows, ...rows];
-      } catch (_) {}
-      setIssues(rows);
+      
+      // If profiles join fails, try without it
+      if (fetchError) {
+        console.warn('Profiles join failed, trying without:', fetchError);
+        const fallbackResult = await supabase
+          .from('issues')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (fallbackResult.error) {
+          throw fallbackResult.error;
+        }
+        data = fallbackResult.data;
+      }
+      
+      // Apply safe fallbacks to all issues
+      const safeIssues = (data || []).map(createSafeIssue);
+      setIssues(safeIssues);
     } catch (err) {
+      console.error('Error fetching issues:', err);
       setError(err.message || 'Failed to fetch issues');
-      toast.error(err.message || 'Failed to fetch issues');
+      setIssues([]);
     } finally {
       setLoading(false);
     }

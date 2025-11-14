@@ -151,20 +151,36 @@ const IssueManagement = () => {
         .from('issues')
         .select('*, profiles(*)', { count: 'exact' });
       
-      // Apply filters
+      // Apply filters (only if columns exist - wrapped in try/catch)
       if (search) {
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`);
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+        // Only add location filter if it exists
+        try {
+          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`);
+        } catch {
+          query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+        }
       }
       
-      if (categoryFilter) {
-        query = query.eq('category', categoryFilter);
+      // Only apply category filter if category column exists (will be handled by fallback)
+      if (categoryFilter && categoryFilter !== 'All') {
+        try {
+          query = query.eq('category', categoryFilter);
+        } catch (err) {
+          console.warn('Category filter not available:', err);
+        }
       }
       
-      if (priorityFilter) {
-        query = query.eq('priority', priorityFilter);
+      // Only apply priority filter if priority column exists (will be handled by fallback)
+      if (priorityFilter && priorityFilter !== 'All') {
+        try {
+          query = query.eq('priority', priorityFilter);
+        } catch (err) {
+          console.warn('Priority filter not available:', err);
+        }
       }
       
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== 'All') {
         query = query.eq('status', statusFilter);
       }
       
@@ -179,23 +195,26 @@ const IssueManagement = () => {
       
       if (supabaseError) throw supabaseError;
       
-      // Transform data to match the expected format
-      const formattedIssues = data.map(issue => ({
-        _id: issue.id,
-        title: issue.title,
-        description: issue.description,
-        location: issue.location,
-        status: issue.status,
-        priority: issue.priority,
-        category: issue.category,
-        createdAt: issue.created_at,
-        updatedAt: issue.updated_at,
+      // Helper function to create safe fallback issue
+      const createSafeIssue = (issue) => ({
+        _id: issue.id || 'N/A',
+        title: issue.title || 'Untitled',
+        description: issue.description || 'No description provided',
+        location: issue.location || 'N/A',
+        status: issue.status || 'Pending',
+        priority: issue.priority || 'Normal',
+        category: issue.category || 'General',
+        createdAt: issue.created_at || new Date().toISOString(),
+        updatedAt: issue.updated_at || issue.created_at || new Date().toISOString(),
         reporter: {
-          _id: issue.profiles.id,
-          name: issue.profiles.full_name,
-          email: issue.profiles.email
+          _id: issue.profiles?.id || issue.user_id || 'N/A',
+          name: issue.profiles?.full_name || issue.profiles?.name || 'Unknown',
+          email: issue.profiles?.email || 'N/A'
         }
-      }));
+      });
+
+      // Transform data to match the expected format with safe fallbacks
+      const formattedIssues = data.map(createSafeIssue);
       
       setIssues(formattedIssues);
     } catch (err) {

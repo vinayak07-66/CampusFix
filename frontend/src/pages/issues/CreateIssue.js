@@ -1,8 +1,10 @@
+// TEMPORARY DEMO MODE — Using localStorage instead of Supabase
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDropzone } from 'react-dropzone';
+import { toast } from 'sonner';
 
 const CreateIssue = () => {
   const navigate = useNavigate();
@@ -17,7 +19,6 @@ const CreateIssue = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   
@@ -119,11 +120,10 @@ const CreateIssue = () => {
     
     try {
       setLoading(true);
-      setError(null);
       setSuccess(false);
 
       if (!user) {
-        setError('You must be logged in to report an issue');
+        toast.error('You must be logged in to report an issue.');
         return;
       }
 
@@ -134,12 +134,12 @@ const CreateIssue = () => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}-${Date.now()}.${fileExt}`;
         
-        const { data, error } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('issues')
           .upload(`images/${fileName}`, file);
 
-        if (error) {
-          setError('Error uploading image: ' + error.message);
+        if (uploadError) {
+          toast.error(`Error uploading image: ${uploadError.message}`);
           return;
         }
 
@@ -150,46 +150,39 @@ const CreateIssue = () => {
         imageUrl = publicUrl.publicUrl;
       }
 
-      // Save issue data to Supabase "issues" table
-      const { error: insertError } = await supabase.from('issues').insert([
-        { 
-          title: formData.title, 
-          description: formData.description, 
-          location: formData.location,
-          category: formData.category,
-          priority: formData.priority,
-          image_url: imageUrl, 
-          user_id: user.id,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        },
-      ]);
-
-      // Always add a demo copy locally so it appears instantly
-      const demoIssue = {
-        id: `demo-${Date.now()}`,
-        title: formData.title,
-        description: formData.description,
-        location: formData.location,
-        category: formData.category,
-        priority: formData.priority,
-        image_url: imageUrl || '',
+      // Build issue payload with only available fields
+      const issuePayload = {
+        title: formData.title, 
+        description: formData.description, 
         user_id: user.id,
-        profiles: { name: user.user_metadata?.name || user.email || 'You' },
         status: 'Pending',
         created_at: new Date().toISOString()
       };
-      try {
-        const existing = JSON.parse(localStorage.getItem('demo_issues') || '[]');
-        localStorage.setItem('demo_issues', JSON.stringify([demoIssue, ...existing]));
-      } catch (_) {}
+
+      // Only include optional fields if they have values
+      if (formData.location) {
+        issuePayload.location = formData.location;
+      }
+      if (formData.category) {
+        issuePayload.category = formData.category;
+      }
+      if (formData.priority) {
+        issuePayload.priority = formData.priority;
+      }
+      if (imageUrl) {
+        issuePayload.image_url = imageUrl;
+      }
+
+      // Save issue data to Supabase "issues" table
+      const { error: insertError } = await supabase.from('issues').insert([issuePayload]);
 
       if (insertError) {
-        // Keep going with demo data even if backend insert failed
-        setError(null);
+        toast.error(insertError.message || 'Failed to submit report.');
+        return;
       }
 
       setSuccess(true);
+      toast.success('Report submitted successfully!');
       // Reset form
       setFormData({
         title: '',
@@ -206,7 +199,7 @@ const CreateIssue = () => {
         navigate('/issues');
       }, 1200);
     } catch (err) {
-      setError('An unexpected error occurred: ' + err.message);
+      toast.error(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -225,17 +218,6 @@ const CreateIssue = () => {
           </Link>
         </div>
         
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg animate-fade-in">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              {error}
-            </div>
-          </div>
-        )}
-        
         {success && (
         <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded-lg animate-fade-in">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -243,7 +225,7 @@ const CreateIssue = () => {
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="font-medium">Issue submitted successfully!</span>
+              <span className="font-medium">Report submitted successfully!</span>
             </div>
             <Link
               to="/issues"

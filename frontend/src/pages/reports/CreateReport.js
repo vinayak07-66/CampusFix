@@ -3,14 +3,68 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
+
+const LOCAL_REPORTER_KEY = 'campusfix_local_reporter';
+
+const getStoredLocalReporter = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LOCAL_REPORTER_KEY) || 'null');
+    if (stored && stored.id) {
+      return stored;
+    }
+  } catch (err) {
+    console.warn('Failed to parse local reporter profile.', err);
+  }
+  return null;
+};
+
+const persistLocalReporter = (reporter) => {
+  try {
+    localStorage.setItem(LOCAL_REPORTER_KEY, JSON.stringify(reporter));
+  } catch (err) {
+    console.warn('Failed to persist local reporter profile.', err);
+  }
+};
+
+const buildReporterProfile = (user) => {
+  if (user) {
+    const reporter = {
+      id: user.id,
+      name: user.name || user.email || 'Student Reporter',
+      email: user.email || '',
+      studentId: user.studentId || '',
+      role: user.role || 'student'
+    };
+    persistLocalReporter(reporter);
+    return reporter;
+  }
+
+  const stored = getStoredLocalReporter();
+  if (stored) {
+    return stored;
+  }
+
+  const fallbackReporter = {
+    id: `local-user-${Date.now()}`,
+    name: 'Student Reporter',
+    email: '',
+    studentId: '',
+    role: 'student'
+  };
+  persistLocalReporter(fallbackReporter);
+  return fallbackReporter;
+};
 
 const CreateReport = () => {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [form, setForm] = useState({
     title: '',
     description: '',
     category: '',
-    priority: 'Medium'
+    priority: 'Medium',
+    location: ''
   });
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -42,11 +96,45 @@ const CreateReport = () => {
     }
   };
 
+  const resolveCurrentUser = async () => {
+    if (authUser) {
+      persistLocalReporter({
+        id: authUser.id,
+        name: authUser.name || authUser.email || 'Student Reporter',
+        email: authUser.email || '',
+        studentId: authUser.studentId || '',
+        role: authUser.role || 'student'
+      });
+      return authUser;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+
+      if (data?.user) {
+        const resolvedUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || '',
+          studentId: data.user.user_metadata?.studentId || '',
+          role: data.user.user_metadata?.role || 'student'
+        };
+        persistLocalReporter(resolvedUser);
+        return resolvedUser;
+      }
+    } catch (err) {
+      console.warn('Unable to fetch Supabase user:', err?.message || err);
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     
-    if (!form.title || !form.description || !form.category) {
+    if (!form.title || !form.description || !form.category || !form.location) {
       setError('Please fill in all required fields');
       return;
     }
@@ -54,12 +142,11 @@ const CreateReport = () => {
     setLoading(true);
 
     try {
-      // 1. Get logged-in user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("You must be logged in to submit a report");
-        setLoading(false);
-        return;
+      // 1. Get logged-in user (from context or Supabase)
+      const activeUser = await resolveCurrentUser();
+      const reporter = buildReporterProfile(activeUser);
+      if (!activeUser) {
+        toast.info('Submitting report offline. Please sign in later to sync with your account.');
       }
 
       let photoPath = null;
@@ -67,7 +154,7 @@ const CreateReport = () => {
       // 2. Upload file if selected
       if (file) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const fileName = `${reporter.id}-${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("reports")
           .upload(fileName, file);
@@ -83,52 +170,94 @@ const CreateReport = () => {
         }
       }
 
-      // 3. Insert report record
-      const { error } = await supabase.from("reports").insert([
-        {
-          student_id: user.id,
-          title: form.title,
-          description: form.description,
-          category: form.category,
-          priority: form.priority,
-          photo_url: photoPath,
-          status: "Pending",
-          created_at: new Date().toISOString()
-        }
-      ]);
+      const createdAt = new Date().toISOString();
+      const dbPayload = {
+        student_id: reporter.id,
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        photo_url: photoPath,
+        status: "Pending",
+        created_at: createdAt,
+        location: form.location
+      };
 
-      if (error) {
-        console.error('Database error:', error);
-        // Fallback to local storage for demo
-        const demoReport = {
+      let createdReport = null;
+      let savedLocally = false;
+
+      try {
+        const { data: insertedReports, error: insertError } = await supabase
+          .from("reports")
+          .insert([dbPayload])
+          .select();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        createdReport = insertedReports?.[0]
+          ? {
+              ...insertedReports[0],
+              owner_id: reporter.id,
+              student_name: reporter.name,
+              student_email: reporter.email,
+              student_number: reporter.studentId
+            }
+          : null;
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        savedLocally = true;
+        createdReport = {
           id: `demo-report-${Date.now()}`,
-          student_id: user.id,
+          owner_id: reporter.id,
+          student_id: reporter.id,
+          student_name: reporter.name,
+          student_email: reporter.email,
+          student_number: reporter.studentId,
           title: form.title,
           description: form.description,
           category: form.category,
           priority: form.priority,
           photo_url: photoPath,
           status: "Pending",
-          created_at: new Date().toISOString()
+          created_at: createdAt,
+          location: form.location
         };
-        
+      }
+
+      // Always save to localStorage for admin dashboard visibility
+      if (createdReport) {
         try {
           const existing = JSON.parse(localStorage.getItem('demo_reports') || '[]');
-          localStorage.setItem('demo_reports', JSON.stringify([demoReport, ...existing]));
-        } catch (_) {}
-        
+          const filteredExisting = Array.isArray(existing)
+            ? existing.filter(report => report.id !== createdReport.id)
+            : [];
+          localStorage.setItem('demo_reports', JSON.stringify([createdReport, ...filteredExisting]));
+        } catch (cacheError) {
+          console.warn('Failed to update local reports cache.', cacheError);
+        }
+
+        window.dispatchEvent(new CustomEvent('demo_reports_updated', { detail: { report: createdReport, type: 'created' } }));
+      }
+
+      toast.success('Report submitted successfully!');
+      if (savedLocally) {
         toast.warning('Report saved locally (database connection issue)');
-      } else {
-        toast.success('Report submitted successfully!');
       }
 
       setSuccess(true);
-      setForm({ title: '', description: '', category: '', priority: 'Medium' });
+      setForm({ title: '', description: '', category: '', priority: 'Medium', location: '' });
       setFile(null);
       setPreview(null);
       
       setTimeout(() => {
-        navigate('/reports');
+        navigate('/reports', { 
+          state: { 
+            successMessage: 'Report submitted successfully!',
+            highlightReportId: createdReport?.id || createdReport?._id || null
+          } 
+        });
       }, 1500);
     } catch (err) {
       console.error("Error submitting report:", err);
@@ -234,6 +363,23 @@ const CreateReport = () => {
                     <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 12.414A2 2 0 0012 12a2 2 0 00-1.414.414l-4.243 4.243M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Location *
+                </label>
+                <input 
+                  name="location" 
+                  value={form.location} 
+                  onChange={handleChange} 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200" 
+                  placeholder="Enter the location of the issue (e.g., Block A, Room 204)" 
+                  required
+                />
               </div>
               
               <div>

@@ -69,16 +69,22 @@ const MainLayout = () => {
       { text: 'Events', icon: <EventIcon />, path: '/events' },
     ];
 
+    const isAdmin = user?.role === 'admin' || user?.role === 'staff';
+
     if (isAuthenticated) {
       items.push(
-        { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-        { text: 'Report Issue', icon: <ReportIcon />, path: '/issues/create' }
+        { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }
       );
 
-      if (user?.role === 'admin' || user?.role === 'staff') {
+      if (!isAdmin) {
+        // Keep only one Report section in navbar
         items.push(
-          { text: 'Admin Panel', icon: <AdminIcon />, path: '/admin' }
+          { text: 'Report Issues', icon: <ReportIcon />, path: '/reports/create' }
         );
+      }
+
+      if (isAdmin) {
+        items.push({ text: 'Admin Panel', icon: <AdminIcon />, path: '/admin' });
       }
     }
 

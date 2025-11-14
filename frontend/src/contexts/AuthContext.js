@@ -106,22 +106,23 @@ export const AuthProvider = ({ children }) => {
       });
       
       if (error) throw error;
-      
-      setUser({
+      const normalizedUser = {
         id: data.user.id,
         email: data.user.email,
         name: data.user.user_metadata?.name || '',
         studentId: data.user.user_metadata?.studentId || '',
         department: data.user.user_metadata?.department || '',
         role: data.user.user_metadata?.role || 'student'
-      });
+      };
+      
+      setUser(normalizedUser);
       
       setLoading(false);
-      return true;
+      return { success: true, user: normalizedUser };
     } catch (err) {
       setError(err.message || 'Login failed');
       setLoading(false);
-      return false;
+      return { success: false, error: err };
     }
   };
 

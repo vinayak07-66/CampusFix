@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import {
@@ -32,7 +32,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Pending as PendingIcon,
   Error as ErrorIcon,
-  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 
 // Helper function to get status icon
@@ -87,7 +86,6 @@ const IssuesList = () => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -99,19 +97,17 @@ const IssuesList = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Check for authenticated user
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setUser(session.user);
       }
     };
-    
-    checkUser();
-    fetchIssues();
-  }, [page, filters]);
 
-  const fetchIssues = async () => {
+    checkUser();
+  }, []);
+
+  const fetchIssues = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -121,22 +117,37 @@ const IssuesList = () => {
       const from = (page - 1) * limit;
       const to = from + limit - 1;
       
-      // Start building the query
+      // Start building the query - use select("*") to get all columns
       let query = supabase
         .from('issues')
-        .select('*, profiles!inner(*)', { count: 'exact' });
+        .select('*, profiles(*)', { count: 'exact' });
       
-      // Apply filters
+      // Apply filters (with safe fallbacks)
       if (filters.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,location.ilike.%${filters.search}%`);
+        // Try with location, fallback to title/description only
+        try {
+          query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,location.ilike.%${filters.search}%`);
+        } catch {
+          query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        }
       }
       
+      // Only apply category filter if it exists (will be handled by fallback)
       if (filters.category) {
-        query = query.eq('category', filters.category);
+        try {
+          query = query.eq('category', filters.category);
+        } catch (err) {
+          console.warn('Category filter not available:', err);
+        }
       }
       
+      // Only apply priority filter if it exists (will be handled by fallback)
       if (filters.priority) {
-        query = query.eq('priority', filters.priority);
+        try {
+          query = query.eq('priority', filters.priority);
+        } catch (err) {
+          console.warn('Priority filter not available:', err);
+        }
       }
       
       if (filters.status) {
@@ -150,7 +161,6 @@ const IssuesList = () => {
       
       // Get count first for pagination
       const { count } = await query.count();
-      setTotalCount(count || 0);
       setTotalPages(Math.ceil((count || 0) / limit));
       
       // Execute the query with pagination
@@ -158,78 +168,80 @@ const IssuesList = () => {
         .order('created_at', { ascending: false })
         .range(from, to);
       
-      if (supabaseError) throw supabaseError;
-      
-      // Transform data to match the expected format
-      const formattedIssues = data.map(issue => ({
-        _id: issue.id,
-        title: issue.title,
-        description: issue.description,
-        location: issue.location,
-        status: issue.status,
-        priority: issue.priority,
-        category: issue.category,
-        media: issue.image_url ? [issue.image_url] : [],
-        createdAt: issue.created_at,
-        user: {
-          email: issue.profiles.email,
-          name: issue.profiles.full_name
+      if (supabaseError) {
+        // If profiles join fails, try without it
+        console.warn('Query error, trying fallback:', supabaseError);
+        const fallbackQuery = supabase
+          .from('issues')
+          .select('*', { count: 'exact' });
+        
+        if (filters.status) {
+          fallbackQuery.eq('status', filters.status);
         }
-      }));
-      
-      // Merge backend issues with locally stored demo issues (show newest first)
-      let merged = formattedIssues;
-      try {
-        const localDemo = JSON.parse(localStorage.getItem('demo_issues') || '[]');
-        const asStudentCards = localDemo.map((d) => ({
-          _id: d.id,
-          title: d.title,
-          description: d.description,
-          location: d.location,
-          status: d.status,
-          priority: d.priority,
-          category: d.category,
-          media: d.image_url ? [d.image_url] : [],
-          createdAt: d.created_at,
-          user: { email: '', name: d.profiles?.name || 'You' }
+        if (filters.showOnlyMine && user) {
+          fallbackQuery.eq('user_id', user.id);
+        }
+        
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        
+        if (fallbackError) throw fallbackError;
+        
+        // Apply safe fallbacks
+        const formattedIssues = (fallbackData || []).map(issue => ({
+          _id: issue.id || 'N/A',
+          title: issue.title || 'Untitled',
+          description: issue.description || 'No description provided',
+          location: issue.location || 'N/A',
+          status: issue.status || 'Pending',
+          priority: issue.priority || 'Normal',
+          category: issue.category || 'General',
+          media: issue.image_url ? [issue.image_url] : [],
+          createdAt: issue.created_at || new Date().toISOString(),
+          user: {
+            email: '',
+            name: 'Unknown'
+          }
         }));
-        merged = [...asStudentCards, ...formattedIssues].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      } catch (_) {}
-      setIssues(merged);
+        
+        setIssues(formattedIssues);
+        return;
+      }
+      
+      // Helper function to create safe fallback issue
+      const createSafeIssue = (issue) => ({
+        _id: issue.id || 'N/A',
+        title: issue.title || 'Untitled',
+        description: issue.description || 'No description provided',
+        location: issue.location || 'N/A',
+        status: issue.status || 'Pending',
+        priority: issue.priority || 'Normal',
+        category: issue.category || 'General',
+        media: issue.image_url ? [issue.image_url] : [],
+        createdAt: issue.created_at || new Date().toISOString(),
+        user: {
+          email: issue.profiles?.email || '',
+          name: issue.profiles?.full_name || issue.profiles?.name || 'Unknown'
+        }
+      });
+      
+      // Transform data to match the expected format with safe fallbacks
+      const formattedIssues = (data || []).map(createSafeIssue);
+      
+      setIssues(formattedIssues);
     } catch (err) {
       console.error('Error fetching issues:', err);
-      // Fallback to demo data when backend/table is unavailable
-      const demo = [
-        {
-          _id: 'demo-s-1',
-          title: 'Broken fan',
-          description: 'Fan not working in classroom',
-          location: 'Room 101',
-          status: 'Pending',
-          priority: 'Medium',
-          category: 'Electrical',
-          media: [],
-          createdAt: new Date().toISOString(),
-          user: { email: 'john@pccoer.in', name: 'John Doe' }
-        },
-        {
-          _id: 'demo-s-2',
-          title: 'Water leakage in washroom',
-          description: 'Continuous water leakage observed near sink',
-          location: 'Block B - 2nd Floor',
-          status: 'In Progress',
-          priority: 'High',
-          category: 'Plumbing',
-          media: [],
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          user: { email: 'jane@pccoer.in', name: 'Jane Smith' }
-        }
-      ];
-      setIssues(demo);
+      setIssues([]);
+      setError('Unable to load issues. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, filters, user]);
+
+  useEffect(() => {
+    fetchIssues();
+  }, [fetchIssues]);
 
   const handlePageChange = (event, value) => {
     setPage(value);

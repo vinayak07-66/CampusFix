@@ -59,6 +59,28 @@ const Dashboard = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Listen for admin report status updates and localStorage changes
+  useEffect(() => {
+    const reloadLocalReports = () => {
+      try {
+        const localReports = JSON.parse(localStorage.getItem('demo_reports') || '[]');
+        const userLocalReports = localReports.filter(r => r.student_id === user?.id);
+        setUserReports(prev => {
+          const others = prev.filter(r => !localReports.some(lr => lr.id === r.id));
+          const merged = [...userLocalReports, ...others];
+          return merged.slice(0, 3);
+        });
+      } catch {}
+    };
+    const handleCustomEvent = () => reloadLocalReports();
+    window.addEventListener('storage', reloadLocalReports);
+    window.addEventListener('demo_reports_updated', handleCustomEvent);
+    return () => {
+      window.removeEventListener('storage', reloadLocalReports);
+      window.removeEventListener('demo_reports_updated', handleCustomEvent);
+    };
+  }, [user]);
   
   // Handle logout
   const handleLogout = async () => {
@@ -177,20 +199,28 @@ const Dashboard = () => {
         }
       }
       
+      // Build issue payload with only available fields
+      const issuePayload = {
+        title: issueForm.title, 
+        description: issueForm.description, 
+        user_id: user.id,
+        status: 'Pending',
+        created_at: new Date().toISOString()
+      };
+
+      // Only include optional fields if they have values
+      if (issueForm.location) {
+        issuePayload.location = issueForm.location;
+      }
+      if (issueForm.category) {
+        issuePayload.category = issueForm.category;
+      }
+      if (imageUrl) {
+        issuePayload.image_url = imageUrl;
+      }
+
       // Save issue data to Supabase "issues" table
-      const { error: insertError } = await supabase.from('issues').insert([
-        { 
-          title: issueForm.title, 
-          description: issueForm.description, 
-          location: issueForm.location,
-          category: issueForm.category,
-          priority: 'Medium', // Default priority
-          image_url: imageUrl, 
-          user_id: user.id,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        },
-      ]);
+      const { error: insertError } = await supabase.from('issues').insert([issuePayload]);
 
       if (insertError) {
         console.error('Error reporting issue:', insertError);
@@ -265,13 +295,13 @@ const Dashboard = () => {
         // Also check local storage for demo reports
         try {
           const localReports = JSON.parse(localStorage.getItem('demo_reports') || '[]');
-          const userLocalReports = localReports.filter(report => report.student_id === user.id);
+          const userLocalReports = localReports.filter(r => r.student_id === user.id);
           reports = [...userLocalReports, ...reports];
         } catch (err) {
           console.error('Error parsing local reports:', err);
         }
-        
-        setUserReports(reports.slice(0, 3)); // Show only latest 3
+        // Save merged reports to state (limit to 3)
+        setUserReports(reports.slice(0, 3));
       } catch (err) {
         console.error('Error fetching user reports:', err);
       }
@@ -303,7 +333,7 @@ const Dashboard = () => {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
@@ -403,9 +433,7 @@ const Dashboard = () => {
                     </svg>
                     My Reports
                   </h2>
-                  <Link to="/reports" className="text-sm font-medium text-green-600 hover:text-green-800 transition duration-200">
-                    View All
-                  </Link>
+                  <span className="text-sm font-medium text-gray-400">View All</span>
                 </div>
                 
                 {userReports.length > 0 ? (
@@ -413,7 +441,18 @@ const Dashboard = () => {
                     {userReports.map((report) => (
                       <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-medium text-gray-800 line-clamp-1">{report.title}</h3>
+                          <div>
+                            <h3 className="font-medium text-gray-800 line-clamp-1">{report.title}</h3>
+                            {report.location && (
+                              <div className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500">
+                                <svg className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M12 21s-7-4.438-7-11a7 7 0 1114 0c0 6.562-7 11-7 11z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                </svg>
+                                <span className="truncate max-w-[220px]">{report.location}</span>
+                              </div>
+                            )}
+                          </div>
                           <span className={`text-xs px-2 py-1 rounded-full ${
                             report.status === 'Pending' 
                               ? 'bg-yellow-100 text-yellow-800' 
@@ -455,12 +494,7 @@ const Dashboard = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                     <p className="text-gray-500 text-sm">No reports submitted yet</p>
-                    <Link 
-                      to="/reports/create" 
-                      className="mt-2 inline-block text-sm font-medium text-green-600 hover:text-green-800"
-                    >
-                      Submit your first report
-                    </Link>
+                    {/* removed stray closing fragment */}
                   </div>
                 )}
               </div>
@@ -511,157 +545,195 @@ const Dashboard = () => {
               </div>
             </div>
             
-            {/* Right Column - Report Issue Form */}
+            {/* Right Column - Help & Support */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
               <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"></path>
                 </svg>
-                Report Issue
+                Help & Support
               </h2>
-              
-              {/* Success Message */}
-              {submitSuccess && (
-                <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-green-700">Issue reported successfully!</p>
-                    </div>
+              <div className="space-y-4">
+                <div className="rounded-lg bg-blue-50 border border-blue-100 p-4">
+                  <p className="text-sm text-blue-800">
+                    Welcome! This area now provides help and guidance. To view your submissions, use the "My Issues" card on the left.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Quick links</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Link to="/issues" className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200 transition">View My Issues</Link>
+                    <Link to="/events" className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200 transition">Browse Events</Link>
                   </div>
                 </div>
-              )}
-              
-              <form onSubmit={handleIssueSubmit}>
-                <div className="space-y-4">
-                  {/* Title Field */}
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                    <input
-                      type="text"
-                      id="title"
-                      name="title"
-                      value={issueForm.title}
-                      onChange={handleIssueFormChange}
-                      className={`w-full px-3 py-2 border ${formErrors.title ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="Brief title of the issue"
-                    />
-                    {formErrors.title && <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>}
-                  </div>
-                  
-                  {/* Description Field */}
-                  <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      id="description"
-                      name="description"
-                      value={issueForm.description}
-                      onChange={handleIssueFormChange}
-                      rows="3"
-                      className={`w-full px-3 py-2 border ${formErrors.description ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="Detailed description of the issue"
-                    ></textarea>
-                    {formErrors.description && <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>}
-                  </div>
-                  
-                  {/* Location Field */}
-                  <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input
-                      type="text"
-                      id="location"
-                      name="location"
-                      value={issueForm.location}
-                      onChange={handleIssueFormChange}
-                      className={`w-full px-3 py-2 border ${formErrors.location ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="Where is the issue located?"
-                    />
-                    {formErrors.location && <p className="mt-1 text-sm text-red-600">{formErrors.location}</p>}
-                  </div>
-                  
-                  {/* Category Field */}
-                  <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select
-                      id="category"
-                      name="category"
-                      value={issueForm.category}
-                      onChange={handleIssueFormChange}
-                      className={`w-full px-3 py-2 border ${formErrors.category ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                    {formErrors.category && <p className="mt-1 text-sm text-red-600">{formErrors.category}</p>}
-                  </div>
-                  
-                  {/* File Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Image (Optional)</label>
-                    <div 
-                      {...getRootProps()} 
-                      className={`border-2 border-dashed ${isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300'} rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition duration-200`}
-                    >
-                      <input {...getInputProps()} />
-                      {preview ? (
-                        <div className="space-y-2">
-                          <img 
-                            src={preview} 
-                            alt="Preview" 
-                            className="mx-auto h-32 object-cover rounded-lg"
-                          />
-                          <button 
-                            type="button" 
-                            onClick={handleRemoveFile}
-                            className="text-sm text-red-600 hover:text-red-800"
-                          >
-                            Remove image
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1 text-gray-500">
-                          <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <p className="text-sm">
-                            Drag and drop an image here, or click to select
-                          </p>
-                          <p className="text-xs">
-                            (JPEG, PNG, GIF up to 10MB)
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Submit Button */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className={`w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-                    >
-                      {isSubmitting ? (
-                        <span className="flex items-center justify-center">
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Submitting...
-                        </span>
-                      ) : 'Submit Issue'}
-                    </button>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Guidelines</h3>
+                  <ul className="text-sm text-gray-600 list-disc ml-5 space-y-1">
+                    <li>Provide clear titles and descriptions when reporting from the Issues page.</li>
+                    <li>Include the exact location to help our team assist you faster.</li>
+                    <li>Track progress in the My Issues section.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Contact support</h3>
+                  <div className="text-sm text-gray-600">
+                    <p>Email: support@campusfix.local</p>
+                    <p className="mt-1">Phone: 082372 38080</p>
                   </div>
                 </div>
-              </form>
+              </div>
             </div>
-          </div>
+            {/* removed unmatched fragment close */}
+          {false && (<div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Report Issue
+            </h2>
+            
+            {/* Success Message */}
+            {submitSuccess && (
+              <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-green-700">Issue reported successfully!</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <form onSubmit={handleIssueSubmit}>
+              <div className="space-y-4">
+                {/* Title Field */}
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value={issueForm.title}
+                    onChange={handleIssueFormChange}
+                    className={`w-full px-3 py-2 border ${formErrors.title ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    placeholder="Brief title of the issue"
+                  />
+                  {formErrors.title && <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>}
+                </div>
+                
+                {/* Description Field */}
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={issueForm.description}
+                    onChange={handleIssueFormChange}
+                    rows="3"
+                    className={`w-full px-3 py-2 border ${formErrors.description ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    placeholder="Detailed description of the issue"
+                  ></textarea>
+                  {formErrors.description && <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>}
+                </div>
+                
+                {/* Location Field */}
+                <div>
+                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    id="location"
+                    name="location"
+                    value={issueForm.location}
+                    onChange={handleIssueFormChange}
+                    className={`w-full px-3 py-2 border ${formErrors.location ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    placeholder="Where is the issue located?"
+                  />
+                  {formErrors.location && <p className="mt-1 text-sm text-red-600">{formErrors.location}</p>}
+                </div>
+                
+                {/* Category Field */}
+                <div>
+                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    id="category"
+                    name="category"
+                    value={issueForm.category}
+                    onChange={handleIssueFormChange}
+                    className={`w-full px-3 py-2 border ${formErrors.category ? 'border-red-300' : 'border-gray-300'} rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                  {formErrors.category && <p className="mt-1 text-sm text-red-600">{formErrors.category}</p>}
+                </div>
+                
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Image (Optional)</label>
+                  <div 
+                    {...getRootProps()} 
+                    className={`border-2 border-dashed ${isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300'} rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition duration-200`}
+                  >
+                    <input {...getInputProps()} />
+                    {preview ? (
+                      <div className="space-y-2">
+                        <img 
+                          src={preview} 
+                          alt="Preview" 
+                          className="mx-auto h-32 object-cover rounded-lg"
+                        />
+                        <button 
+                          type="button" 
+                          onClick={handleRemoveFile}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          Remove image
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-gray-500">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <p className="text-sm">
+                          Drag and drop an image here, or click to select
+                        </p>
+                        <p className="text-xs">
+                          (JPEG, PNG, GIF up to 10MB)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Submit Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </span>
+                    ) : 'Submit Issue'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>)}
+        </div>
         </div>
       )}
     </div>
